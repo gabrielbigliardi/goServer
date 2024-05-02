@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gabrielbigliardi/goServer/internal/database"
-	"github.com/go-chi/chi/v5"
 )
 
 type apiConfig struct {
@@ -27,27 +26,20 @@ func main() {
 		DB:             db,
 	}
 
-	router := chi.NewRouter()
+	mux := http.NewServeMux()
 	fsHandler := apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot))))
-	router.Handle("/app", fsHandler)
-	router.Handle("/app/*", fsHandler)
+	mux.Handle("/app/*", fsHandler)
 
-	apiRouter := chi.NewRouter()
-	apiRouter.Get("/healthz", handlerReadiness)
-	apiRouter.Get("/reset", apiCfg.handlerReset)
-	apiRouter.Post("/chirps", apiCfg.handlerChirpsCreate)
-	apiRouter.Get("/chirps", apiCfg.handlerChirpsRetrieve)
-	router.Mount("/api", apiRouter)
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("GET /api/reset", apiCfg.handlerReset)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerChirpsCreate)
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerChirpsRetrieve)
 
-	adminRouter := chi.NewRouter()
-	adminRouter.Get("/metrics", apiCfg.handlerMetrics)
-	router.Mount("/admin", adminRouter)
-
-	corsMux := middlewareCors(router)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: corsMux,
+		Handler: mux,
 	}
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
